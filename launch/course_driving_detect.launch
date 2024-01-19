@@ -1,0 +1,6 @@
+<launch>
+    <param name="file_prefix_in" value="$(find hybrid_astar)/waypoints_in/" />
+    <param name="file_prefix_out" value="$(find hybrid_astar)/waypoints_out/" />
+
+    <node name="course_driving_detect" pkg="course_driving_detect" type="course_driving_detect" output="screen" />
+</launch>
