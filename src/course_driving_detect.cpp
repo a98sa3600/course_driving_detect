@@ -18,6 +18,7 @@ std::string file_prefix_in;
 std::string file_prefix_out;
 std::string hole_in_name ;
 std::string hole_out_name ;
+std::string mode_name;
 bool vaild_hole_changed = false;
 
 typedef struct point{
@@ -90,6 +91,15 @@ void holeCallback(const std_msgs::String::ConstPtr& msg){
     }
 }
 
+void modeCallback(const std_msgs::String::ConstPtr& msg){
+    std::string tmp = msg->data.c_str();
+    if(mode_name != tmp ){
+        mode_name = "";
+        mode_name = tmp;
+    }
+}
+
+
 void poseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose){
     current_pose.x = pose->pose.position.x;
     current_pose.y = pose->pose.position.y;
@@ -100,7 +110,7 @@ bool isInRange(const point& choosed_point,const point& current_pose){
     float distance = std::sqrt( std::abs(choosed_point.x - current_pose.x)+
                                 std::abs(choosed_point.y - current_pose.y)+
                                 std::abs(choosed_point.z - current_pose.z));
-    std::cout << distance << std::endl;
+    std::cout << "distance gap : " << distance << std::endl;
     return distance <  switch_distance;
 }
 
@@ -126,33 +136,43 @@ int main(int argc,char **argv){
     
     ros::NodeHandle nh;
 
-    ros::Subscriber sub_hole = nh.subscribe("/destination_hole", 1000, holeCallback);
-
+    ros::Subscriber sub_destination_hole = nh.subscribe("/destination_hole", 1000, holeCallback);
     ros::Subscriber sub_current_pose = nh.subscribe("/current_pose", 1000, poseCallback);
+    ros::Subscriber sub_current_mode = nh.subscribe("/current_mode", 1000, modeCallback);
 
     nh.param<std::string>("file_prefix_in",file_prefix_in,"$(find course_driving_detect)/waypoints_in/" );
     nh.param<std::string>("file_prefix_out",file_prefix_out,"$(find course_driving_detect)/waypoints_out/" );
 
-    ros::Rate loop_rate=10;
+    ros::Rate loop_rate=5;
 
     while (ros::ok())
     {
-        if(vaild_hole_changed){
+        if( vaild_hole_changed && (mode_name == "course_mode") ){
             set_hole_point();
             std::cout <<"IN_POSE: " <<  choosed_in_point.x << " , " << choosed_in_point.y << " , " << choosed_in_point.z << std::endl;
             std::cout <<"OUT_POSE: " << choosed_out_point.x << " , " << choosed_out_point.y << " , " << choosed_out_point.z  << std::endl;
             nh.setParam("/ndt_reliability_detect/gps_switch", true);
             vaild_hole_changed = false;
+            mode_name = "";
         }
 
         if(isInRange(choosed_in_point,current_pose)){
+            std::cout << " =========================================  " << std::endl;
             std::cout << " current_pose is in choosed_in_point range  " << std::endl;
+            std::cout << " msf_localizer/ball_mode is true            " << std::endl;
+            std::cout << " =========================================  " << std::endl;
             nh.setParam("/msf_localizer/ball_mode", true);
         }
 
         if(isInRange(choosed_out_point,current_pose)){
-            std::cout << " current_pose is in choosed_out_point range  " << std::endl;
+            std::cout << " =========================================  " << std::endl;
+            std::cout << " current_pose is in choosed_out_point range " << std::endl;
+            std::cout << " msf_localizer/ball_mode is false           " << std::endl;
+            std::cout << " ndt_reliability_detect/gps_switch is false " << std::endl;
+            std::cout << " =========================================  " << std::endl;
+
             nh.setParam("/msf_localizer/ball_mode", false);
+            nh.setParam("/ndt_reliability_detect/gps_switch", false);
         }
 
         ros::spinOnce();
